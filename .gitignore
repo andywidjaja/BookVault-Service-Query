@@ -348,3 +348,11 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# ---> VisualStudioCode
+.settings
+
+BookVault.Service.Query/appsettings.Local.json
+BookVault.Service.Query/appsettings.Development.json
+BookVault.Service.Query/appsettings.Quality.json
+BookVault.Service.Query/appsettings.Testing.json
