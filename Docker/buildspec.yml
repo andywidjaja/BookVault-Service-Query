@@ -1,0 +1,56 @@
+version: 0.2
+
+env:
+  shell: bash
+  exported-variables:
+    - IMAGE_TAG
+
+phases:
+  pre_build:
+    commands:
+      # download env variables file from get_source_code build project
+      #- ENV_VARS_FILE=get_source_code_env_variables.txt
+      #- aws s3 cp s3://${CICD_BUCKET}/${ENV_VARS_FILE} ./${ENV_VARS_FILE}
+      # environment variables
+      #- FULL_COMMIT_HASH=$(grep CODEBUILD_RESOLVED_SOURCE_VERSION ${ENV_VARS_FILE} | cut -d '=' -f 2)
+      #- COMMIT_HASH=$(echo ${FULL_COMMIT_HASH} | cut -c 1-8)
+      #- FULL_BRANCH_NAME=$(grep CODEBUILD_SOURCE_VERSION ${ENV_VARS_FILE} | cut -d '=' -f 2)
+      #- BRANCH=$(basename "${FULL_BRANCH_NAME}")
+      #- |
+        if [[ $(echo ${FULL_BRANCH_NAME} | grep -i release) ]]; then
+          IMAGE_TAG=${COMMIT_HASH}_${BRANCH};
+        else
+          IMAGE_TAG=${COMMIT_HASH};
+        fi
+      #- echo "IMAGE_TAG = ${IMAGE_TAG}"
+      - PROJECT=bookvault-qry
+      #- CONTAINER_NAME=${nnn}-${mmm}-cntr
+      - CONTAINER_NAME=${PROJECT}-cntr
+      - ECR_HOST=${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
+      - PUBLISH_DIR=${CODEBUILD_SRC_DIR}/publish/
+      - REPOSITORY_URI=${ECR_HOST}/${PROJECT}
+      # start docker
+      #- service docker start
+      # ecr login
+      #- aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_HOST}
+      
+  build:
+    commands:
+      # dotnet build
+      - dotnet restore
+      - dotnet publish --configuration Release --output ${PUBLISH_DIR}
+      # docker build
+      #- docker image build --file Docker/Dockerfile --tag ${REPOSITORY_URI}:${IMAGE_TAG} .
+      #- docker image push ${REPOSITORY_URI}:${IMAGE_TAG}
+       
+  post_build:
+    commands:
+      # imagedefinitions.json is used to deploy new image
+      - printf '[{"name":"%s","imageUri":"%s"}]' ${CONTAINER_NAME} ${REPOSITORY_URI}:${IMAGE_TAG} > imagedefinitions.json
+      # store the image URI in secretsmanager for use by Fargate base template
+      #- aws secretsmanager update-secret --secret-id "/${nnn}/${mmm}/${eee}/image" --secret-string "{\"image_uri\":\"${REPOSITORY_URI}:${IMAGE_TAG}\"}"
+      
+artifacts:
+  discard-paths: yes
+  files:
+    - imagedefinitions.json
